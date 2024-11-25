@@ -181,41 +181,122 @@ def train_model(model, X_train, y_train, X_test, y_test, grid_search=False, para
         "params": params
     }, model
 
-
-# Função para criar e treinar redes neurais personalizadas
 def train_custom_nn(X_train, X_test, y_train, y_test, config):
-    layers = config.get('layers', [64, 32])
-    dropout = config.get('dropout', 0.2)
-    learning_rate = config.get('learning_rate', 0.001)
-    epochs = config.get('epochs', 50)
-    batch_size = config.get('batch_size', 32)
-    
-    model = Sequential()
-    model.add(Dense(layers[0], activation='relu', input_dim=X_train.shape[1]))
-    for units in layers[1:]:
-        model.add(Dense(units, activation='relu'))
-        model.add(Dropout(dropout))
-    model.add(Dense(1, activation='linear'))
+    """
+    Train a custom neural network with the specified configuration.
 
-    model.compile(optimizer=Adam(learning_rate=learning_rate), loss='mse', metrics=['mae'])
-    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-    model.fit(X_train, y_train, validation_split=0.2, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
+    Parameters:
+        X_train (ndarray): Training features.
+        X_test (ndarray): Testing features (used as validation data).
+        y_train (ndarray): Training labels.
+        y_test (ndarray): Testing labels.
+        config (dict): Configuration dictionary for the model.
+
+    Returns:
+        dict: Metrics and model.
+    """
+    # Get the model from the config (which is a KerasRegressor)
+    model = config.get("model")
+
+    # Ensure the model is instantiated correctly
+    if model is None:
+        raise ValueError("Model configuration is missing or incorrect.")
     
+    # Get the configuration values for training parameters
+    epochs = model.epochs
+    batch_size = model.batch_size
+
+    # If the model is an instance of KerasRegressor, we need to train it with .fit() method
+    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+    
+    # Fit the model with validation data from X_test and y_test
+    model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs,
+              batch_size=batch_size, callbacks=[early_stopping], verbose=1, shuffle=False)
+    
+    # Make predictions on the test set
     predictions = model.predict(X_test)
+    
+    # Calculate evaluation metrics
     rmse = np.sqrt(mean_squared_error(y_test, predictions))
     mae = mean_absolute_error(y_test, predictions)
     r2 = r2_score(y_test, predictions)
-    
-    # Log NN config
-    params = {
-        "layers": layers,
-        "dropout": dropout,
-        "learning_rate": learning_rate,
+
+    # Return metrics and the trained model
+    return {"rmse": rmse, "mae": mae, "r2": r2, "params": {
         "epochs": epochs,
         "batch_size": batch_size
-    }
+    }}, model
+
+
+# not needed and not working properly
+'''def train_custom_nn(X_train, X_test, y_train, y_test, config, cv_splits=5):
+    """
+    Train a custom neural network with the specified configuration.
+
+    Parameters:
+        X_train (ndarray): Training features.
+        X_test (ndarray): Testing features.
+        y_train (ndarray): Training labels.
+        y_test (ndarray): Testing labels.
+        config (dict): Configuration dictionary for the model.
+
+    Returns:
+        dict: Metrics and model.
+    """
+    # Get the model from the config (which is a KerasRegressor)
+    model = config.get("model")
+
+    # Ensure the model is instantiated correctly
+    if model is None:
+        raise ValueError("Model configuration is missing or incorrect.")
     
-    return {"rmse": rmse, "mae": mae, "r2": r2, "params": params}, model
+    # Get the configuration values for training parameters
+    epochs = model.epochs
+    batch_size = model.batch_size
+
+    # Set up TimeSeriesSplit for cross-validation
+    tscv = TimeSeriesSplit(n_splits=cv_splits)
+
+    # Store metrics for each fold
+    fold_metrics = []
+
+    # Perform TimeSeriesCrossValidation
+    for train_index, val_index in tscv.split(X_train):
+        # Split data into training and validation sets for the current fold
+        X_train_cv, X_val_cv = X_train.iloc[train_index], X_train.iloc[val_index]
+        y_train_cv, y_val_cv = y_train.iloc[train_index], y_train.iloc[val_index]
+
+        # If the model is an instance of KerasRegressor, we need to train it with .fit() method
+        early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
+        # Fit the model
+        model.fit(X_train_cv, y_train_cv, validation_data=(X_val_cv, y_val_cv), epochs=epochs,
+                  batch_size=batch_size, callbacks=[early_stopping], verbose=0)
+
+        # Make predictions on the validation set
+        predictions = model.predict(X_val_cv)
+
+        # Calculate evaluation metrics for this fold
+        rmse = np.sqrt(mean_squared_error(y_val_cv, predictions))
+        mae = mean_absolute_error(y_val_cv, predictions)
+        r2 = r2_score(y_val_cv, predictions)
+
+        # Store the metrics for this fold
+        fold_metrics.append({"rmse": rmse, "mae": mae, "r2": r2})
+
+    # Calculate average metrics across all folds
+    avg_rmse = np.mean([metrics["rmse"] for metrics in fold_metrics])
+    avg_mae = np.mean([metrics["mae"] for metrics in fold_metrics])
+    avg_r2 = np.mean([metrics["r2"] for metrics in fold_metrics])
+
+    print(f"Metrics for {config.get('name', 'Custom NN')}:")
+    print(f"Average RMSE: {avg_rmse:.4f}, Average MAE: {avg_mae:.4f}, Average R²: {avg_r2:.4f}")
+
+    # Return metrics and the trained model
+    return {"rmse": avg_rmse, "mae": avg_mae, "r2": avg_r2, "params": {
+        "epochs": epochs,
+        "batch_size": batch_size
+    }}, model'''
 
 # Main pipeline function
 def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
@@ -251,7 +332,7 @@ def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
             if name.startswith("Custom NN"):
                 # Train a custom neural network
                 metrics, trained_model = train_custom_nn(
-                    X_train.values, X_test.values, y_train.values, y_test.values, config
+                    X_train.values, X_test.values, y_train, y_test.values, config
                 )
                 epochs = metrics.get("params", {}).get("epochs", np.nan)
                 best_params = metrics.get("params", None)

@@ -9,6 +9,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.optimizers import Adam
 
+# You can define any neural network models you want to compare in this dictionary with its respective functions
 
 def build_custom_nn(input_dim, layers, dropout, learning_rate):
     """
@@ -70,17 +71,18 @@ models_config = {
     }
 }
 
-custom =  {"Custom NN": {
+neural_network_comparisons =  {"Custom NN": {
         "model": KerasRegressor(
-            build_fn=lambda: build_custom_nn(
-                input_dim=10,  # Replace with the actual number of input features
+            model=lambda: build_custom_nn(
+                input_dim=8,  # don't change because its the number of features
                 layers=[64, 32, 16],
                 dropout=0.3,
                 learning_rate=0.001
             ),
-            epochs=100,
-            batch_size=64,
-            verbose=1
+            epochs=10,
+            batch_size=32,
+            shuffle=False # don't shuffle the data because it's time series
         ),
+        "grid_search": False,
         "optimized": False  # Set to True if you want to run hyperparameter tuning
     }}
