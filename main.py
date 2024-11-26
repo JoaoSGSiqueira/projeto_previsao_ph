@@ -6,9 +6,9 @@ if __name__ == '__main__':
     results_df, best_model, model_history = main_pipeline(
         "Dados Brutos pHDosado - Completo.csv", 
         "Real_RD_PV_pHDosado", 
-        regression_models_comparisons,
+        neural_network_comparisons,
         sample_size=10000
     )
     # Save the results
-    results_df.to_csv("results_nn.csv", index=False)
+    results_df.to_csv("results_with_nn.csv", index=False)
     #best_model.save("best_model_without_nn.h5")

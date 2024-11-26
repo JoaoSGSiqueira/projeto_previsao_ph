@@ -213,6 +213,8 @@ def train_custom_nn(X_train, X_test, y_train, y_test, config):
     model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs,
               batch_size=batch_size, callbacks=[early_stopping], verbose=1, shuffle=False)
     
+    history = model.history_
+    
     # Make predictions on the test set
     predictions = model.predict(X_test)
     
@@ -225,7 +227,7 @@ def train_custom_nn(X_train, X_test, y_train, y_test, config):
     return {"rmse": rmse, "mae": mae, "r2": r2, "params": {
         "epochs": epochs,
         "batch_size": batch_size
-    }}, model
+    }}, model, history
 
 
 # not needed and not working properly
@@ -331,7 +333,7 @@ def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
         try:
             if name.startswith("Custom NN"):
                 # Train a custom neural network
-                metrics, trained_model = train_custom_nn(
+                metrics, trained_model, history = train_custom_nn(
                     X_train.values, X_test.values, y_train, y_test.values, config
                 )
                 epochs = metrics.get("params", {}).get("epochs", np.nan)
@@ -374,6 +376,7 @@ def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
                     "r2": metrics["r2"],
                     "epochs": epochs,
                     "best_params": best_params,
+                    "history": pd.DataFrame(history),
                     "tested_models": tested_models,
                 }
             )
