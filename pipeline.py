@@ -107,6 +107,64 @@ def prepare_data(df, target_column, test_size=0.2, sample_size=None):
     
     return X_train, X_test, y_train, y_test
 
+# sequence length is 103 because it's aproximately five minutes of data
+def prepare_data_for_sequences(df, target_column, sequence_length=103, test_size=0.2, sample_size=None):
+    """
+    Prepares time series data by creating sequences from the dataset.
+
+    Parameters:
+        df (pd.DataFrame): The dataset.
+        target_column (str): The target variable column name.
+        sequence_length (int): Number of time steps in each sequence.
+        test_size (float): Proportion of data to use for testing.
+        sample_size (int, optional): Number of samples to randomly select from the dataset.
+
+    Returns:
+        X_train, X_test, y_train, y_test: Sequences of features and target for training and testing.
+    """
+    # Drop unused columns and handle missing values
+    df = df.drop(['Real_RD_MV_ValvulaCalpHDosado-2'], axis=1)
+
+    # Ensure timezone column is in datetime format
+    df['timezone'] = pd.to_datetime(df['timezone'])
+
+    # Sort by the timezone column
+    df = df.sort_values(by='timezone')
+
+    if sample_size:
+        df = df.iloc[:sample_size]
+
+    # Transform the dataset to be stationary
+    df = make_dataset_stationary(df, df.columns)
+
+    # Scale the dataset
+    df = scale_dataframe(df)
+
+    # Remove NaN values
+    df = df.dropna()
+
+    # Split into features and target
+    X = df.drop(columns=[target_column, 'ID', 'timezone'])
+    y = df[target_column]
+
+    # Calculate the split index for time series
+    split_index = int(len(df) * (1 - test_size))
+
+    # Create sequences for training and testing sets
+    def create_sequences(X, y, sequence_length):
+        X_seq, y_seq = [], []
+        for i in range(len(X) - sequence_length):
+            X_seq.append(X.iloc[i:i + sequence_length].values)
+            y_seq.append(y.iloc[i + sequence_length])
+        return np.array(X_seq), np.array(y_seq)
+
+    # Create sequences for training data
+    X_train, y_train = create_sequences(X.iloc[:split_index], y.iloc[:split_index], sequence_length)
+    # Create sequences for testing data
+    X_test, y_test = create_sequences(X.iloc[split_index:], y.iloc[split_index:], sequence_length)
+
+    return X_train, X_test, y_train, y_test
+
 def train_model(model, X_train, y_train, X_test, y_test, grid_search=False, param_grid=None, cv_splits=5):
     """
     Trains and evaluates a machine learning model, with optional cross-validation and grid search.
@@ -181,9 +239,9 @@ def train_model(model, X_train, y_train, X_test, y_test, grid_search=False, para
         "params": params
     }, model
 
-def train_custom_nn(X_train, X_test, y_train, y_test, config):
+def train_custom_nn(X_train, X_test, y_train, y_test, config, grid_search=False, param_grid=None, cv_splits=5):
     """
-    Train a custom neural network with the specified configuration.
+    Train a custom neural network with the specified configuration and optional grid search.
 
     Parameters:
         X_train (ndarray): Training features.
@@ -191,114 +249,195 @@ def train_custom_nn(X_train, X_test, y_train, y_test, config):
         y_train (ndarray): Training labels.
         y_test (ndarray): Testing labels.
         config (dict): Configuration dictionary for the model.
+        grid_search (bool): Whether to perform grid search for hyperparameter tuning.
+        param_grid (dict): Parameter grid for grid search.
+        cv_splits (int): Number of cross-validation splits for grid search.
 
     Returns:
         dict: Metrics and model.
+        model: Trained model or best estimator from grid search.
+        history: Training history (if grid_search=False).
     """
-    # Get the model from the config (which is a KerasRegressor)
     model = config.get("model")
 
-    # Ensure the model is instantiated correctly
     if model is None:
         raise ValueError("Model configuration is missing or incorrect.")
-    
-    # Get the configuration values for training parameters
-    epochs = model.epochs
-    batch_size = model.batch_size
 
-    # If the model is an instance of KerasRegressor, we need to train it with .fit() method
-    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-    
-    # Fit the model with validation data from X_test and y_test
-    model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs,
-              batch_size=batch_size, callbacks=[early_stopping], verbose=1, shuffle=False)
-    
-    history = model.history_
-    
-    # Make predictions on the test set
-    predictions = model.predict(X_test)
-    
-    # Calculate evaluation metrics
-    rmse = np.sqrt(mean_squared_error(y_test, predictions))
-    mae = mean_absolute_error(y_test, predictions)
-    r2 = r2_score(y_test, predictions)
+    if grid_search and param_grid:
+        # Use TimeSeriesSplit for cross-validation
+        tscv = TimeSeriesSplit(n_splits=cv_splits)
 
-    # Return metrics and the trained model
-    return {"rmse": rmse, "mae": mae, "r2": r2, "params": {
-        "epochs": epochs,
-        "batch_size": batch_size
-    }}, model, history
+        # Wrap the KerasRegressor model for GridSearchCV
+        grid_search = GridSearchCV(
+            estimator=model,
+            param_grid=param_grid,
+            scoring='neg_mean_squared_error',
+            cv=tscv,
+            verbose=1,
+            n_jobs=-1
+        )
 
+        grid_search.fit(X_train, y_train)
+        best_model = grid_search.best_estimator_
+        best_params = grid_search.best_params_
 
-# not needed and not working properly
-'''def train_custom_nn(X_train, X_test, y_train, y_test, config, cv_splits=5):
+        # Make predictions with the best model
+        predictions = best_model.predict(X_test)
+
+        # Calculate evaluation metrics
+        rmse = np.sqrt(mean_squared_error(y_test, predictions))
+        mae = mean_absolute_error(y_test, predictions)
+        r2 = r2_score(y_test, predictions)
+
+        return {
+            "rmse": rmse,
+            "mae": mae,
+            "r2": r2,
+            "best_params": best_params
+        }, best_model, None
+
+    else:
+        # Train the model without grid search
+        epochs = model.epochs
+        batch_size = model.batch_size
+
+        early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+        
+        model.fit(
+            X_train, y_train,
+            validation_data=(X_test, y_test),
+            epochs=epochs,
+            batch_size=batch_size,
+            callbacks=[early_stopping],
+            verbose=1,
+            shuffle=False
+        )
+
+        history = model.history_
+
+        # Make predictions on the test set
+        predictions = model.predict(X_test)
+
+        # Calculate evaluation metrics
+        rmse = np.sqrt(mean_squared_error(y_test, predictions))
+        mae = mean_absolute_error(y_test, predictions)
+        r2 = r2_score(y_test, predictions)
+
+        print(f"RMSE: {rmse}, MAE: {mae}, R²: {r2}")
+
+        return {
+            "rmse": rmse,
+            "mae": mae,
+            "r2": r2,
+            "params": {
+                "epochs": epochs,
+                "batch_size": batch_size
+            }
+        }, model, history
+    
+def train_custom_rnn(SX_train, SX_test, Sy_train, Sy_test, X_test, y_test,
+                     config, grid_search=False, param_grid=None, cv_splits=5):
     """
-    Train a custom neural network with the specified configuration.
+    Train a custom neural network with the specified configuration and optional grid search.
 
     Parameters:
         X_train (ndarray): Training features.
-        X_test (ndarray): Testing features.
+        X_test (ndarray): Testing features (used as validation data).
         y_train (ndarray): Training labels.
         y_test (ndarray): Testing labels.
         config (dict): Configuration dictionary for the model.
+        grid_search (bool): Whether to perform grid search for hyperparameter tuning.
+        param_grid (dict): Parameter grid for grid search.
+        cv_splits (int): Number of cross-validation splits for grid search.
 
     Returns:
         dict: Metrics and model.
+        model: Trained model or best estimator from grid search.
+        history: Training history (if grid_search=False).
     """
-    # Get the model from the config (which is a KerasRegressor)
     model = config.get("model")
 
-    # Ensure the model is instantiated correctly
     if model is None:
         raise ValueError("Model configuration is missing or incorrect.")
-    
-    # Get the configuration values for training parameters
-    epochs = model.epochs
-    batch_size = model.batch_size
 
-    # Set up TimeSeriesSplit for cross-validation
-    tscv = TimeSeriesSplit(n_splits=cv_splits)
+    if grid_search and param_grid:
+        # Use TimeSeriesSplit for cross-validation
+        tscv = TimeSeriesSplit(n_splits=cv_splits)
 
-    # Store metrics for each fold
-    fold_metrics = []
+        # Wrap the KerasRegressor model for GridSearchCV
+        grid_search = GridSearchCV(
+            estimator=model,
+            param_grid=param_grid,
+            scoring='neg_mean_squared_error',
+            cv=tscv,
+            verbose=1,
+            n_jobs=-1
+        )
 
-    # Perform TimeSeriesCrossValidation
-    for train_index, val_index in tscv.split(X_train):
-        # Split data into training and validation sets for the current fold
-        X_train_cv, X_val_cv = X_train.iloc[train_index], X_train.iloc[val_index]
-        y_train_cv, y_val_cv = y_train.iloc[train_index], y_train.iloc[val_index]
+        grid_search.fit(
+            SX_train, Sy_train,
+            validation_data=(SX_test, Sy_test),
+            epochs=epochs,
+            batch_size=batch_size,
+            callbacks=[early_stopping],
+            verbose=1,
+            shuffle=False)
+        best_model = grid_search.best_estimator_
+        best_params = grid_search.best_params_
 
-        # If the model is an instance of KerasRegressor, we need to train it with .fit() method
+        # Make predictions with the best model
+        predictions = best_model.predict(X_test)
+
+        # Calculate evaluation metrics
+        rmse = np.sqrt(mean_squared_error(y_test, predictions))
+        mae = mean_absolute_error(y_test, predictions)
+        r2 = r2_score(y_test, predictions)
+
+        return {
+            "rmse": rmse,
+            "mae": mae,
+            "r2": r2,
+            "best_params": best_params
+        }, best_model, None
+
+    else:
+        # Train the model without grid search
+        epochs = model.epochs
+        batch_size = model.batch_size
+
         early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+        
+        model.fit(
+            SX_train, Sy_train,
+            validation_data=(SX_test, Sy_test),
+            epochs=epochs,
+            batch_size=batch_size,
+            callbacks=[early_stopping],
+            verbose=1,
+            shuffle=False
+        )
 
-        # Fit the model
-        model.fit(X_train_cv, y_train_cv, validation_data=(X_val_cv, y_val_cv), epochs=epochs,
-                  batch_size=batch_size, callbacks=[early_stopping], verbose=0)
+        history = model.history_
 
-        # Make predictions on the validation set
-        predictions = model.predict(X_val_cv)
+        # Make predictions on the test set
+        predictions = model.predict(X_test)
 
-        # Calculate evaluation metrics for this fold
-        rmse = np.sqrt(mean_squared_error(y_val_cv, predictions))
-        mae = mean_absolute_error(y_val_cv, predictions)
-        r2 = r2_score(y_val_cv, predictions)
+        # Calculate evaluation metrics
+        rmse = np.sqrt(mean_squared_error(y_test, predictions))
+        mae = mean_absolute_error(y_test, predictions)
+        r2 = r2_score(y_test, predictions)
 
-        # Store the metrics for this fold
-        fold_metrics.append({"rmse": rmse, "mae": mae, "r2": r2})
+        return {
+            "rmse": rmse,
+            "mae": mae,
+            "r2": r2,
+            "params": {
+                "epochs": epochs,
+                "batch_size": batch_size
+            }
+        }, model, history
 
-    # Calculate average metrics across all folds
-    avg_rmse = np.mean([metrics["rmse"] for metrics in fold_metrics])
-    avg_mae = np.mean([metrics["mae"] for metrics in fold_metrics])
-    avg_r2 = np.mean([metrics["r2"] for metrics in fold_metrics])
 
-    print(f"Metrics for {config.get('name', 'Custom NN')}:")
-    print(f"Average RMSE: {avg_rmse:.4f}, Average MAE: {avg_mae:.4f}, Average R²: {avg_r2:.4f}")
-
-    # Return metrics and the trained model
-    return {"rmse": avg_rmse, "mae": avg_mae, "r2": avg_r2, "params": {
-        "epochs": epochs,
-        "batch_size": batch_size
-    }}, model'''
 
 # Main pipeline function
 def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
@@ -320,6 +459,8 @@ def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
     df = pd.read_csv(dataset_path)
     X_train, X_test, y_train, y_test = prepare_data(df, target_column, sample_size=sample_size)
 
+    SX_train, SX_test, Sy_train, Sy_test = prepare_data_for_sequences(df, target_column, sample_size=sample_size)
+
     results = []
     trained_models = {}
     model_history = {}
@@ -334,7 +475,25 @@ def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
             if name.startswith("Custom NN"):
                 # Train a custom neural network
                 metrics, trained_model, history = train_custom_nn(
-                    X_train.values, X_test.values, y_train, y_test.values, config
+                    X_train.values, X_test.values, y_train, y_test.values, config, optimized, param_grid
+                )
+                epochs = metrics.get("params", {}).get("epochs", np.nan)
+                best_params = metrics.get("params", None)
+                tested_models = "Not applicable"
+
+                '''if name.startswith("Custom RNN"):
+                # Train a custom neural network
+                metrics, trained_model, history = train_custom_rnn(
+                    SX_train, SX_test, Sy_train, Sy_test,X_test, y_test, config, optimized, param_grid
+                )
+                epochs = metrics.get("params", {}).get("epochs", np.nan)
+                best_params = metrics.get("params", None)
+                tested_models = "Not applicable"'''
+
+            if name.startswith("Custom RNN"):
+                # Train a custom neural network
+                metrics, trained_model, history = train_custom_nn(
+                    SX_train, SX_test, Sy_train, Sy_test, config, optimized, param_grid
                 )
                 epochs = metrics.get("params", {}).get("epochs", np.nan)
                 best_params = metrics.get("params", None)
