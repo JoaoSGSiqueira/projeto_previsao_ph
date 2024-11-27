@@ -73,8 +73,8 @@ def prepare_data(df, target_column, test_size=0.2, sample_size=None):
     Returns:
         X_train, X_test, y_train, y_test: Splits of the dataset.
     """
-    # Drop unused columns and handle missing values
-    df = df.drop(['Real_RD_MV_ValvulaCalpHDosado-2'], axis=1)
+    # Drop unused columns and handle missing values, and columns that are not useful
+    df = df.drop(['Real_RD_MV_ValvulaCalpHDosado-2', 'Real_RD_PV_BaumeCal', 'Real_RD_ST_LimpezaPHmetro'], axis=1)
 
     # Ensure timezone column is in datetime format
     df['timezone'] = pd.to_datetime(df['timezone'])

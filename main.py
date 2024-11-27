@@ -10,5 +10,5 @@ if __name__ == '__main__':
         sample_size=10000
     )
     # Save the results
-    results_df.to_csv("results_transformer.csv", index=False)
+    results_df.to_csv("results_test.csv", index=False)
     #best_model.save("best_model_without_nn.h5")

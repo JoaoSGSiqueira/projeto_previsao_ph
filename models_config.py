@@ -39,7 +39,6 @@ def build_custom_nn(input_dim, layers, dropout, learning_rate):
 
     model = Sequential()
     # Input layer
-    model.add(Input(shape=(input_dim)))  # Define input shape
     model.add(Dense(layers[0], activation='relu', input_dim=input_dim))
 
     # Hidden layers
@@ -226,7 +225,7 @@ neural_network_comparisons =  {
     "Custom NN": {
         "model": KerasRegressor(
             model=lambda: build_custom_nn(
-                input_dim=8,  # don't change because its the number of features
+                input_dim=6,  # don't change because its the number of features
                 layers=[64, 32, 16],
                 dropout=0.3,
                 learning_rate=0.001
