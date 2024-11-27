@@ -1,0 +1,31 @@
+model_name,rmse,mae,r2,epochs,best_params,history,tested_models
+Gradient Boosting,0.7390558453415184,0.4744773538707986,0.3179733187919928,,"{'alpha': 0.9, 'ccp_alpha': 0.0, 'criterion': 'friedman_mse', 'init': None, 'learning_rate': 0.01, 'loss': 'squared_error', 'max_depth': 3, 'max_features': None, 'max_leaf_nodes': None, 'min_impurity_decrease': 0.0, 'min_samples_leaf': 1, 'min_samples_split': 2, 'min_weight_fraction_leaf': 0.0, 'n_estimators': 200, 'n_iter_no_change': None, 'random_state': None, 'subsample': 1.0, 'tol': 0.0001, 'validation_fraction': 0.1, 'verbose': 0, 'warm_start': False}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+SVR (Support Vector Regressor),0.7393347256036334,0.4787550792045624,0.3612997612298196,,"{'C': 0.1, 'cache_size': 200, 'coef0': 0.0, 'degree': 3, 'epsilon': 0.1, 'gamma': 'scale', 'kernel': 'rbf', 'max_iter': -1, 'shrinking': True, 'tol': 0.001, 'verbose': False}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+XGBoost,0.741276044763564,0.4765670005797503,0.31605880634753636,200.0,"{'objective': 'reg:squarederror', 'base_score': None, 'booster': None, 'callbacks': None, 'colsample_bylevel': None, 'colsample_bynode': None, 'colsample_bytree': None, 'device': None, 'early_stopping_rounds': None, 'enable_categorical': False, 'eval_metric': None, 'feature_types': None, 'gamma': None, 'grow_policy': None, 'importance_type': None, 'interaction_constraints': None, 'learning_rate': 0.01, 'max_bin': None, 'max_cat_threshold': None, 'max_cat_to_onehot': None, 'max_delta_step': None, 'max_depth': 3, 'max_leaves': None, 'min_child_weight': None, 'missing': nan, 'monotone_constraints': None, 'multi_strategy': None, 'n_estimators': 200, 'n_jobs': None, 'num_parallel_tree': None, 'random_state': None, 'reg_alpha': None, 'reg_lambda': None, 'sampling_method': None, 'scale_pos_weight': None, 'subsample': None, 'tree_method': None, 'validate_parameters': None, 'verbosity': None}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+LightGBM,0.7432073192975006,0.4794612420571672,0.31120717775361084,,"{'boosting_type': 'gbdt', 'class_weight': None, 'colsample_bytree': 1.0, 'importance_type': 'split', 'learning_rate': 0.01, 'max_depth': 3, 'min_child_samples': 20, 'min_child_weight': 0.001, 'min_split_gain': 0.0, 'n_estimators': 200, 'n_jobs': -1, 'num_leaves': 31, 'objective': None, 'random_state': None, 'reg_alpha': 0.0, 'reg_lambda': 0.0, 'silent': True, 'subsample': 1.0, 'subsample_for_bin': 200000, 'subsample_freq': 0}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+Kernel Ridge Regression,0.752300339775494,0.4815225805298954,0.25621974633316524,,"{'alpha': 10, 'coef0': 1, 'degree': 3, 'gamma': None, 'kernel': 'linear', 'kernel_params': None}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+Random Forest,0.7711698375818223,0.4874499744723753,0.2055725850865043,200.0,"{'bootstrap': True, 'ccp_alpha': 0.0, 'criterion': 'squared_error', 'max_depth': 3, 'max_features': 1.0, 'max_leaf_nodes': None, 'max_samples': None, 'min_impurity_decrease': 0.0, 'min_samples_leaf': 1, 'min_samples_split': 5, 'min_weight_fraction_leaf': 0.0, 'monotonic_cst': None, 'n_estimators': 200, 'n_jobs': None, 'oob_score': False, 'random_state': None, 'verbose': 0, 'warm_start': False}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+AdaBoost,0.772381971119376,0.49097336075873343,0.21814011872456834,,"{'estimator': None, 'learning_rate': 0.01, 'loss': 'linear', 'n_estimators': 100, 'random_state': None}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+Decision Tree,0.7932358533998604,0.49709585557275615,0.1781676255270066,,"{'ccp_alpha': 0.0, 'criterion': 'squared_error', 'max_depth': 3, 'max_features': None, 'max_leaf_nodes': None, 'min_impurity_decrease': 0.0, 'min_samples_leaf': 1, 'min_samples_split': 2, 'min_weight_fraction_leaf': 0.0, 'monotonic_cst': None, 'random_state': None, 'splitter': 'best'}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+MLP Regressor,1.036593907217844,0.6274519812992609,-1.0251033646521974,500.0,"{'activation': 'relu', 'alpha': 0.001, 'batch_size': 'auto', 'beta_1': 0.9, 'beta_2': 0.999, 'early_stopping': False, 'epsilon': 1e-08, 'hidden_layer_sizes': (64, 32, 16), 'learning_rate': 'constant', 'learning_rate_init': 0.001, 'max_fun': 15000, 'max_iter': 500, 'momentum': 0.9, 'n_iter_no_change': 10, 'nesterovs_momentum': True, 'power_t': 0.5, 'random_state': None, 'shuffle': True, 'solver': 'adam', 'tol': 0.0001, 'validation_fraction': 0.1, 'verbose': False, 'warm_start': False}","Empty DataFrame
+Columns: []
+Index: []",Not applicable
+Gaussian Process Regressor,393.0740558330492,161.02641839479764,-598356.690487499,,"{'alpha': 1e-10, 'copy_X_train': True, 'kernel': None, 'n_restarts_optimizer': 0, 'n_targets': None, 'normalize_y': False, 'optimizer': 'fmin_l_bfgs_b', 'random_state': None}","Empty DataFrame
+Columns: []
+Index: []",Not applicable

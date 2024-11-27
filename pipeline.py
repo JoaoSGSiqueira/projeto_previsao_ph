@@ -466,6 +466,7 @@ def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
     model_history = {}
 
     for name, config in models_config.items():
+        history = None
         print(f"\nTraining model: {name}")
         model = config.get("model")
         optimized = config.get("grid_search", False)
@@ -526,6 +527,12 @@ def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
                 best_params = metrics.get("params", None)
                 tested_models = "Not applicable"
 
+                        # Check if history is None or not available
+            if history is None:
+                history_df = pd.DataFrame()  # Create an empty DataFrame
+            else:
+                history_df = pd.DataFrame(history)  # Create a DataFrame from the history data
+
             # Append results
             results.append(
                 {
@@ -535,7 +542,7 @@ def main_pipeline(dataset_path, target_column, models_config, sample_size=None):
                     "r2": metrics["r2"],
                     "epochs": epochs,
                     "best_params": best_params,
-                    "history": pd.DataFrame(history),
+                    "history": history_df,
                     "tested_models": tested_models,
                 }
             )
